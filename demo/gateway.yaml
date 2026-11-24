@@ -1,0 +1,68 @@
+# Demo / test configuration: every provider points at the stand-in server (python -m demo.upstream).
+providers:
+  anthropic:
+    kind: anthropic
+    base_url: ${UPSTREAM_URL:-http://127.0.0.1:9100}
+    api_key_env: DEMO_KEY
+  vllm:
+    kind: openai
+    base_url: ${UPSTREAM_URL:-http://127.0.0.1:9100}/v1
+    api_key_env: DEMO_KEY
+  ollama:
+    kind: ollama
+    base_url: ${UPSTREAM_URL:-http://127.0.0.1:9100}
+
+deployments:
+  opus:
+    provider: anthropic
+    model: claude-opus-5-5
+    price: {input: 4.00, output: 20.00, cache_read: 0.20}
+    context_window: 1000000
+    timeout_s: 20
+    params: {effort: medium}
+    server_fallbacks: default
+  sonnet:
+    provider: anthropic
+    model: claude-sonnet-5-5
+    price: {input: 2.00, output: 10.00, cache_read: 0.10}
+    context_window: 1000000
+    timeout_s: 20
+    params: {effort: medium}
+    server_fallbacks: default
+  haiku:
+    provider: anthropic
+    model: claude-haiku-5-5
+    price: {input: 0.10, output: 0.50}
+    context_window: 1000000
+    timeout_s: 20
+  qwen-vllm:
+    provider: vllm
+    model: qwen2.5-7b-instruct
+    price: {input: 0, output: 0}
+    context_window: 32000
+    timeout_s: 20
+  local:
+    provider: ollama
+    model: llama3.2:3b
+    price: {input: 0, output: 0}
+    context_window: 128000
+    timeout_s: 20
+
+routes:
+  smart:
+    description: Best quality; Sonnet, then self-hosted models if Anthropic is unavailable.
+    deployments: [opus, sonnet, qwen-vllm, local]
+    retries: 1
+    deadline_s: 60
+  fast:
+    description: Low latency and cost.
+    deployments: [haiku, sonnet, local]
+    retries: 1
+  self-hosted:
+    description: Spread over two self-hosted servers by weight.
+    deployments: [qwen-vllm, local]
+    strategy: weighted
+    retries: 0
+    cache_ttl_s: 600
+
+circuit: {failures: 3, cooldown_s: 20, max_cooldown_s: 120}

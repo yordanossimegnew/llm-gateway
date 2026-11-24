@@ -1,0 +1,36 @@
+# Postgres + gateway API + UI. Ollama runs on the host (host.docker.internal).
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: llm_gateway
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 20
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/llm_gateway
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OLLAMA_URL: http://host.docker.internal:11434
+      GATEWAY_ADMIN_KEY: ${GATEWAY_ADMIN_KEY:-}
+      REQUIRE_KEYS: ${REQUIRE_KEYS:-false}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on: {db: {condition: service_healthy}}
+    ports: ["8000:8000"]
+
+  ui:
+    build: .
+    command: ["streamlit", "run", "ui/app.py", "--server.address", "0.0.0.0"]
+    environment:
+      GATEWAY_API_URL: http://api:8000
+      GATEWAY_ADMIN_KEY: ${GATEWAY_ADMIN_KEY:-}
+    depends_on: [api]
+    ports: ["8501:8501"]
+
+volumes:
+  pgdata:

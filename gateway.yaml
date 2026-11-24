@@ -1,0 +1,73 @@
+# LLM Gateway configuration. ${VAR} and ${VAR:-default} are read from the environment.
+#
+# providers   -> where requests go (credentials come from environment variables, never from this file)
+# deployments -> one model on one provider, with its prices (USD per million tokens) and limits
+# routes      -> what clients put in "model": an ordered fallback chain of deployments
+
+providers:
+  anthropic:
+    kind: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+  ollama:
+    kind: ollama
+    base_url: ${OLLAMA_URL:-http://localhost:11434}
+  # Any OpenAI-compatible server (vLLM, llama.cpp, LM Studio, LiteLLM, a hosted API):
+  # local-vllm:
+  #   kind: openai
+  #   base_url: http://localhost:8001/v1
+  #   api_key_env: VLLM_API_KEY
+
+deployments:
+  opus:
+    provider: anthropic
+    model: claude-opus-5-5
+    price: {input: 4.00, output: 20.00, cache_read: 0.20}
+    context_window: 1000000
+    timeout_s: 120
+    max_tokens: 8000
+    params: {effort: medium}
+    server_fallbacks: default        # Anthropic re-runs a refused request on a fallback model inside the same call
+  sonnet:
+    provider: anthropic
+    model: claude-sonnet-5-5
+    price: {input: 2.00, output: 10.00, cache_read: 0.10}
+    context_window: 1000000
+    timeout_s: 90
+    max_tokens: 8000
+    params: {effort: medium}
+    server_fallbacks: default
+  haiku:
+    provider: anthropic
+    model: claude-haiku-5-5
+    price: {input: 0.10, output: 0.50}
+    context_window: 1000000
+    timeout_s: 60
+    params: {effort: low}
+  local:
+    provider: ollama
+    model: llama3.2:3b
+    price: {input: 0, output: 0}
+    context_window: 128000
+    timeout_s: 120
+
+routes:
+  smart:
+    description: Best quality; falls back to Sonnet, then a local model if Anthropic is unreachable.
+    deployments: [opus, sonnet, local]
+    retries: 1
+    deadline_s: 180
+  fast:
+    description: Low latency and cost; Haiku first.
+    deployments: [haiku, sonnet, local]
+    retries: 1
+    deadline_s: 60
+  cheap:
+    description: Local first, cloud only when the local model is down.
+    deployments: [local, haiku]
+    retries: 0
+    cache_ttl_s: 3600
+
+circuit:
+  failures: 3          # consecutive transient failures that open a deployment's circuit
+  cooldown_s: 30       # first open period; doubles each time a half-open probe fails
+  max_cooldown_s: 300
