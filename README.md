@@ -1,6 +1,6 @@
 # LLM Gateway
 
-[![tests](https://github.com/yordanossimegnew/llm-gateway/actions/workflows/tests.yml/badge.svg)](https://github.com/yordanossimegnew/llm-gateway/actions/workflows/tests.yml)
+[![tests](https://github.com/yordanossimegnew/llm-gateway/actions/workflows/tests.yml/badge.svg)](https://github.com/yordanossimegnew/llm-gateway/actions/workflows/tests.yml) ![Python 3.12](https://img.shields.io/badge/python-3.12-blue) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 One **OpenAI-compatible endpoint** in front of Anthropic, any OpenAI-compatible server (vLLM,
 llama.cpp, LM Studio, hosted APIs) and Ollama. Clients ask for a **route** like `"model": "smart"`,
@@ -30,6 +30,13 @@ Ollama APIs (`demo/upstream.py`). The replies are canned and the failures are in
 | Fallback trace | Deployment health and fault injection | Traffic |
 |---|---|---|
 | ![Playground](docs/screenshots/playground-fallback.png) | ![Deployments](docs/screenshots/deployments.png) | ![Traffic](docs/screenshots/traffic.png) |
+
+## Engineering highlights
+
+- An error taxonomy across the Anthropic, OpenAI and Ollama SDKs decides, per failure, whether to retry, fall back or trip the circuit.
+- Circuit breakers (closed → open → half-open), and 429s that cool a deployment down for its `Retry-After` instead of tripping it.
+- Streaming falls back to the next deployment up to the first token. After that, the client gets a real error status.
+- A built-in fault injector and a scripted upstream make every failure path testable. The API tests talk to it through the official OpenAI SDK.
 
 ## Use it
 
