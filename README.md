@@ -1,5 +1,7 @@
 # LLM Gateway
 
+[![tests](https://github.com/yordanossimegnew/llm-gateway/actions/workflows/tests.yml/badge.svg)](https://github.com/yordanossimegnew/llm-gateway/actions/workflows/tests.yml)
+
 One **OpenAI-compatible endpoint** in front of Anthropic, any OpenAI-compatible server (vLLM,
 llama.cpp, LM Studio, hosted APIs) and Ollama. Clients ask for a **route** like `"model": "smart"`,
 and the gateway works out which model actually answers:
